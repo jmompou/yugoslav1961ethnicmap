@@ -46,6 +46,12 @@ for (const [ethnicity, color] of Object.entries(ethnicityColors)) {
     legendContent.appendChild(item);
 }
 
+// Arrays to hold markers and heatmap data
+const markers = [];
+const croatHeatData = [];
+const muslimHeatData = [];
+const serbHeatData = [];
+
 // Add markers for 1961 Census Data
 censusData.forEach(municipality => {
     if (!municipality.lat || !municipality.lon) return;
@@ -64,7 +70,18 @@ censusData.forEach(municipality => {
         weight: 1,
         opacity: 1,
         fillOpacity: 0.8
-    }).addTo(map);
+    });
+
+    // Calculate percentages for the heatmaps (intensity 0 to 1)
+    if (municipality.Croats > 0) {
+        croatHeatData.push([municipality.lat, municipality.lon, municipality.Croats / municipality.Total]);
+    }
+    if (municipality.Muslims > 0) {
+        muslimHeatData.push([municipality.lat, municipality.lon, municipality.Muslims / municipality.Total]);
+    }
+    if (municipality.Serbs > 0) {
+        serbHeatData.push([municipality.lat, municipality.lon, municipality.Serbs / municipality.Total]);
+    }
 
     // Construct HTML string for popup/tooltip content
     let popupHtml = `<div class="custom-popup">
@@ -126,4 +143,38 @@ censusData.forEach(municipality => {
             fillOpacity: 0.8
         });
     });
+
+    markers.push(marker);
 });
+
+// Create Layer Groups
+const bubbleLayer = L.layerGroup(markers);
+
+const heatOptions = {
+    radius: 35,
+    blur: 20,
+    maxZoom: 8,
+    // Custom gradient to clearly demarcate majority areas (>0.5 = lime/yellow/red)
+    gradient: {
+        0.1: 'blue',
+        0.3: 'cyan',
+        0.5: 'lime',
+        0.7: 'yellow',
+        1.0: 'red'
+    }
+};
+
+const croatHeatLayer = L.heatLayer(croatHeatData, heatOptions).addTo(map);
+const muslimHeatLayer = L.heatLayer(muslimHeatData, heatOptions);
+const serbHeatLayer = L.heatLayer(serbHeatData, heatOptions);
+
+// Add Layer Control
+const baseMaps = {};
+const overlayMaps = {
+    "Ethnic Croats Heatmap": croatHeatLayer,
+    "Ethnic Muslims Heatmap": muslimHeatLayer,
+    "Ethnic Serbs Heatmap": serbHeatLayer,
+    "Majority Bubbles": bubbleLayer
+};
+
+L.control.layers(baseMaps, overlayMaps, { collapsed: false }).addTo(map);
